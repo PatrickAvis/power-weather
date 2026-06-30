@@ -41,8 +41,8 @@ Requires `requests` and `pandas`.
 
 ### Time columns
 
-Output leads with identifiers `city`, `country`, `tz`, then `time_utc` and
-`time_local`, both ISO 8601. `time_utc` carries a trailing `Z`; `time_local`
+Output leads with identifiers `city`, `country`, `country_code` (ISO 3166-1
+alpha-2), `tz`, then `time_utc` and `time_local`, both ISO 8601. `time_utc` carries a trailing `Z`; `time_local`
 carries the city's real DST-aware offset (e.g. `+02:00`), which keeps the
 duplicated autumn fall-back hour distinguishable so both columns join cleanly.
 The local zone is the IANA name returned by the geocoder, so no zone map is
@@ -54,11 +54,12 @@ The identifiers let the per-city files load into one table. For Postgres,
 a `timestamptz` local column would convert back to the same instant as
 `time_utc`. See README for the DDL.
 
-### EU-27 capitals loop
+### Capitals loop
 
-`--all-capitals` iterates the `CAPITALS` list at the top of the script (one city
-per member state) and writes one CSV per city to `--out-dir`. Each city is
-geocoded for its lat/lon and timezone.
+`--all-capitals` iterates the `CAPITALS` list at the top of the script (the EU-27
+plus GB, NO, CH, IS) and writes one CSV per city to `--out-dir`, named
+`Country_City.csv`. Each city is geocoded for its lat/lon, timezone, country and
+country code. Already-downloaded files are skipped, so re-runs resume.
 
 ## API facts worth not re-deriving
 

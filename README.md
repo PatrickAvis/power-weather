@@ -27,8 +27,9 @@ m/s. The variables fetched are the `HOURLY` list at the top of
 `download_weather.py`; edit there to change them. Location is given by name
 (geocoded) or by `--lat`/`--lon`.
 
-Each row starts with identifiers `city`, `country`, `tz` (the IANA zone, e.g.
-`Europe/Paris`), then two time columns, both ISO 8601: `time_utc` (the fetched
+Each row starts with identifiers `city`, `country`, `country_code` (ISO 3166-1
+alpha-2, e.g. `FR`), `tz` (the IANA zone, e.g. `Europe/Paris`), then two time
+columns, both ISO 8601: `time_utc` (the fetched
 series, with a trailing `Z`) and `time_local` (the same instants with the city's
 real DST-aware offset, e.g. `2018-07-01T02:00:00+02:00`). The offset keeps the
 duplicated autumn fall-back hour distinguishable, so both columns are safe join
@@ -58,12 +59,13 @@ each direction on the unit circle, so 359 deg sits next to 1 deg and no two
 directions collapse (`sin` alone maps 30 deg and 150 deg the same). The raw
 `wind_direction_100m` column is kept; the encoded columns are derived from it.
 
-`--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
-script; edit to change) and writes one CSV per city to `--out-dir`, named
-`Country_City.csv` (spaces stripped), e.g. `out/France_Paris.csv`. The per-city
-timezone and country come from the geocoder, so there is no hand-maintained map.
-The run skips cities whose file already exists and backs off on rate limits, so
-it is safe to re-run to resume an interrupted pull.
+`--all-capitals` loops the EU-27 capitals plus GB, NO, CH and IS (the `CAPITALS`
+list at the top of the script; edit to change) and writes one CSV per city to
+`--out-dir`, named `Country_City.csv` (spaces stripped), e.g.
+`out/France_Paris.csv`. The per-city timezone, country and country code come from
+the geocoder, so there are no hand-maintained maps. The run skips cities whose
+file already exists and backs off on rate limits, so it is safe to re-run to
+resume an interrupted pull.
 
 ## Data
 

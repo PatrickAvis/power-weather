@@ -35,14 +35,16 @@ HOURLY = [
     "cloud_cover",
 ]
 
-# EU-27 capitals, one city per member state. Edit as you like. The timezone for
-# each is taken from the geocoder, so no hand-maintained zone map is needed.
+# EU-27 capitals plus selected non-EU European ones (GB, NO, CH, IS). Edit as
+# you like. The timezone, country and country code for each are taken from the
+# geocoder, so no hand-maintained maps are needed.
 CAPITALS = [
     "Vienna", "Brussels", "Sofia", "Zagreb", "Nicosia", "Prague",
     "Copenhagen", "Tallinn", "Helsinki", "Paris", "Berlin", "Athens",
     "Budapest", "Dublin", "Rome", "Riga", "Vilnius", "Luxembourg",
     "Valletta", "Amsterdam", "Warsaw", "Lisbon", "Bucharest",
     "Bratislava", "Ljubljana", "Madrid", "Stockholm",
+    "London", "Oslo", "Bern", "Reykjavik",
 ]
 
 
@@ -53,7 +55,8 @@ def geocode(name):
     if not hits:
         raise SystemExit(f"No match for '{name}'. Use --lat/--lon instead.")
     h = hits[0]
-    return h["latitude"], h["longitude"], h.get("timezone"), h.get("country")
+    return (h["latitude"], h["longitude"], h.get("timezone"),
+            h.get("country"), h.get("country_code"))
 
 
 def fetch(lat, lon, start, end):
@@ -84,15 +87,15 @@ def _iso_offset(series):
     return s.str.replace(r"([+-]\d{2})(\d{2})$", r"\1:\2", regex=True)
 
 
-def add_columns(df, tz, city=None, country=None):
+def add_columns(df, tz, city=None, country=None, country_code=None):
     """Prepend row-level identifiers and write the two time columns.
 
-    Identifiers (city, country, tz) make the per-city files loadable into one
-    Postgres table. Both time columns are unambiguous ISO 8601: time_utc with a
-    trailing Z (load into timestamptz), time_local with the city's real DST-aware
-    UTC offset, so the duplicated autumn fall-back hour stays distinguishable
-    (load into timestamp without time zone). time_local is left blank when the
-    zone is unknown, i.e. for raw --lat/--lon input.
+    Identifiers (city, country, country_code, tz) make the per-city files
+    loadable into one Postgres table. Both time columns are unambiguous ISO 8601:
+    time_utc with a trailing Z (load into timestamptz), time_local with the city's
+    real DST-aware UTC offset, so the duplicated autumn fall-back hour stays
+    distinguishable (load into timestamp without time zone). time_local is left
+    blank when the zone is unknown, i.e. for raw --lat/--lon input.
     """
     df = df.rename(columns={"time": "time_utc"})
     utc = pd.to_datetime(df["time_utc"], utc=True)
@@ -100,8 +103,9 @@ def add_columns(df, tz, city=None, country=None):
     df["time_local"] = _iso_offset(utc.dt.tz_convert(tz)) if tz else pd.NA
     df["city"] = city
     df["country"] = country
+    df["country_code"] = country_code  # ISO 3166-1 alpha-2, e.g. FR
     df["tz"] = tz
-    lead = ["city", "country", "tz", "time_utc", "time_local"]
+    lead = ["city", "country", "country_code", "tz", "time_utc", "time_local"]
     return df[lead + [c for c in df.columns if c not in lead]]
 
 
@@ -128,25 +132,25 @@ def main():
     if args.all_capitals:
         os.makedirs(args.out_dir, exist_ok=True)
         for name in CAPITALS:
-            lat, lon, tz, country = geocode(name)
+            lat, lon, tz, country, code = geocode(name)
             path = os.path.join(args.out_dir, f"{country.replace(' ', '')}_{name}.csv")
             if os.path.exists(path):
                 print(f"{name}: already present, skipping", flush=True)
                 continue
-            df = add_columns(fetch(lat, lon, args.start, end), tz, name, country)
+            df = add_columns(fetch(lat, lon, args.start, end), tz, name, country, code)
             df.to_csv(path, index=False)
             print(f"{name} ({country}, {tz}): {len(df)} rows -> {path}", flush=True)
         return
 
     if args.lat is not None and args.lon is not None:
-        lat, lon, tz, city, country = args.lat, args.lon, None, None, None
+        lat, lon, tz, city, country, code = args.lat, args.lon, None, None, None, None
     elif args.location:
-        lat, lon, tz, country = geocode(args.location)
+        lat, lon, tz, country, code = geocode(args.location)
         city = args.location
     else:
         raise SystemExit("Provide --location, --lat/--lon, or --all-capitals.")
 
-    df = add_columns(fetch(lat, lon, args.start, end), tz, city, country)
+    df = add_columns(fetch(lat, lon, args.start, end), tz, city, country, code)
     df.to_csv(args.out, index=False)
     print(f"Saved {len(df)} rows ({args.start} to {end}) to {args.out}")
 

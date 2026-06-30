@@ -11,6 +11,7 @@
 CREATE TABLE weather (
     city                 text        NOT NULL,
     country              text,
+    country_code         text,                  -- ISO 3166-1 alpha-2, e.g. FR
     tz                   text        NOT NULL,  -- IANA zone, e.g. Europe/Paris
     timestamp_utc        timestamptz NOT NULL,  -- from CSV time_utc  (trailing Z)
     timestamp_local      timestamp   NOT NULL,  -- from CSV time_local (offset dropped)
@@ -48,7 +49,7 @@ CREATE INDEX weather_timestamp_utc_idx ON weather (timestamp_utc);
 -- headers (time_utc, time_local) differ from the column names, so COPY maps by
 -- this explicit column list, not by header.
 --
--- \copy weather (city, country, tz, timestamp_utc, timestamp_local,
+-- \copy weather (city, country, country_code, tz, timestamp_utc, timestamp_local,
 --                temperature_2m, relative_humidity_2m, precipitation,
 --                wind_speed_10m, wind_speed_100m, wind_direction_100m,
 --                shortwave_radiation, cloud_cover)
