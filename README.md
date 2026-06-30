@@ -59,9 +59,11 @@ directions collapse (`sin` alone maps 30 deg and 150 deg the same). The raw
 `wind_direction_100m` column is kept; the encoded columns are derived from it.
 
 `--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
-script; edit to change) and writes one CSV per city to `--out-dir`, e.g.
-`out/Paris.csv`. The per-city timezone comes from the geocoder, so there is no
-hand-maintained zone map.
+script; edit to change) and writes one CSV per city to `--out-dir`, named
+`Country_City.csv` (spaces stripped), e.g. `out/France_Paris.csv`. The per-city
+timezone and country come from the geocoder, so there is no hand-maintained map.
+The run skips cities whose file already exists and backs off on rate limits, so
+it is safe to re-run to resume an interrupted pull.
 
 ## Data
 

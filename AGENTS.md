@@ -71,7 +71,9 @@ geocoded for its lat/lon and timezone.
 - Call cost is weighted: a request over 2 weeks or 10 variables counts as
   more than one call (fractional). A full 2018-to-present single-location pull
   is one HTTP request but costs roughly 220 calls against the daily budget.
-  One point per country (5 pulls) is trivial; no client-side throttling needed.
+  One point per country (5 pulls) is trivial. A full --all-capitals run (27
+  full-range pulls) does hit the limit, so fetch() retries on 429 with backoff
+  and the loop skips already-downloaded cities, making re-runs resume.
 - Data licence: CC BY 4.0. Attribute Open-Meteo and ERA5/Copernicus in any
   published output.
 - Full variable list: https://open-meteo.com/en/docs/historical-weather-api

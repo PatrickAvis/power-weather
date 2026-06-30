@@ -12,8 +12,13 @@ Examples:
 import argparse
 import datetime as dt
 import os
+import time
 import requests
 import pandas as pd
+
+# Big archive pulls are rate-limited (HTTP 429). Retry with backoff, honouring
+# the Retry-After header when the server sends one.
+MAX_RETRIES = 8
 
 ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 GEOCODE = "https://geocoding-api.open-meteo.com/v1/search"
@@ -52,15 +57,24 @@ def geocode(name):
 
 
 def fetch(lat, lon, start, end):
-    r = requests.get(ARCHIVE, params={
+    params = {
         "latitude": lat, "longitude": lon,
         "start_date": start, "end_date": end,
         "hourly": ",".join(HOURLY),
         "timezone": "UTC",
         "wind_speed_unit": "ms",
-    }, timeout=120)
-    r.raise_for_status()
-    return pd.DataFrame(r.json()["hourly"])
+    }
+    for attempt in range(MAX_RETRIES):
+        r = requests.get(ARCHIVE, params=params, timeout=120)
+        if r.status_code == 429:
+            wait = int(r.headers.get("Retry-After", 0)) or min(15 * 2 ** attempt, 120)
+            print(f"  rate limited (429), waiting {wait}s...", flush=True)
+            time.sleep(wait)
+            continue
+        r.raise_for_status()
+        return pd.DataFrame(r.json()["hourly"])
+    raise SystemExit("Still rate limited after retries. Re-run later; finished "
+                     "cities are skipped, so it resumes where it stopped.")
 
 
 def _iso_offset(series):
@@ -115,10 +129,13 @@ def main():
         os.makedirs(args.out_dir, exist_ok=True)
         for name in CAPITALS:
             lat, lon, tz, country = geocode(name)
+            path = os.path.join(args.out_dir, f"{country.replace(' ', '')}_{name}.csv")
+            if os.path.exists(path):
+                print(f"{name}: already present, skipping", flush=True)
+                continue
             df = add_columns(fetch(lat, lon, args.start, end), tz, name, country)
-            path = os.path.join(args.out_dir, f"{name}.csv")
             df.to_csv(path, index=False)
-            print(f"{name} ({country}, {tz}): {len(df)} rows -> {path}")
+            print(f"{name} ({country}, {tz}): {len(df)} rows -> {path}", flush=True)
         return
 
     if args.lat is not None and args.lon is not None:

@@ -52,4 +52,4 @@ CREATE INDEX weather_timestamp_utc_idx ON weather (timestamp_utc);
 --                temperature_2m, relative_humidity_2m, precipitation,
 --                wind_speed_10m, wind_speed_100m, wind_direction_100m,
 --                shortwave_radiation, cloud_cover)
---   FROM 'out/Paris.csv' WITH (FORMAT csv, HEADER true);
+--   FROM 'out/France_Paris.csv' WITH (FORMAT csv, HEADER true);
