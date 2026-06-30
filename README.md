@@ -19,6 +19,7 @@ Requires Python 3.10+.
 python download_weather.py --location "London" --out london.csv
 python download_weather.py --location "Paris" --start 2018-01-01 --end 2025-12-31
 python download_weather.py --lat 51.5 --lon -0.1 --out gb.csv
+python download_weather.py --all-capitals --out-dir out
 ```
 
 Defaults: 2018-01-01 to today minus 6 days (the ERA5 archive lag), UTC, wind in
@@ -26,13 +27,15 @@ m/s. The variables fetched are the `HOURLY` list at the top of
 `download_weather.py`; edit there to change them. Location is given by name
 (geocoded) or by `--lat`/`--lon`.
 
-Pull one location per country by running it once per location, e.g.:
+Each CSV starts with two time columns: `time_utc` (the fetched series, always
+UTC) and `time_local` (the same instants as local wall-clock for the city's
+zone, DST included). `time_local` is blank for raw `--lat`/`--lon` input, where
+there is no zone to look up.
 
-```bash
-for loc in "London" "Paris" "Brussels" "Lisbon" "Berlin"; do
-    python download_weather.py --location "$loc" --out "${loc// /_}.csv"
-done
-```
+`--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
+script; edit to change) and writes one CSV per city to `--out-dir`, e.g.
+`out/Paris.csv`. The per-city timezone comes from the geocoder, so there is no
+hand-maintained zone map.
 
 ## Data
 

@@ -6,10 +6,12 @@ Examples:
     python download_weather.py --location "London"
     python download_weather.py --location "Paris" --start 2018-01-01 --end 2025-12-31
     python download_weather.py --lat 51.5 --lon -0.1 --out london.csv
+    python download_weather.py --all-capitals --out-dir out
 """
 
 import argparse
 import datetime as dt
+import os
 import requests
 import pandas as pd
 
@@ -28,6 +30,16 @@ HOURLY = [
     "cloud_cover",
 ]
 
+# EU-27 capitals, one city per member state. Edit as you like. The timezone for
+# each is taken from the geocoder, so no hand-maintained zone map is needed.
+CAPITALS = [
+    "Vienna", "Brussels", "Sofia", "Zagreb", "Nicosia", "Prague",
+    "Copenhagen", "Tallinn", "Helsinki", "Paris", "Berlin", "Athens",
+    "Budapest", "Dublin", "Rome", "Riga", "Vilnius", "Luxembourg",
+    "Valletta", "Amsterdam", "Warsaw", "Lisbon", "Bucharest",
+    "Bratislava", "Ljubljana", "Madrid", "Stockholm",
+]
+
 
 def geocode(name):
     r = requests.get(GEOCODE, params={"name": name, "count": 1}, timeout=30)
@@ -36,7 +48,40 @@ def geocode(name):
     if not hits:
         raise SystemExit(f"No match for '{name}'. Use --lat/--lon instead.")
     h = hits[0]
-    return h["latitude"], h["longitude"]
+    return h["latitude"], h["longitude"], h.get("timezone"), h.get("country")
+
+
+def fetch(lat, lon, start, end):
+    r = requests.get(ARCHIVE, params={
+        "latitude": lat, "longitude": lon,
+        "start_date": start, "end_date": end,
+        "hourly": ",".join(HOURLY),
+        "timezone": "UTC",
+        "wind_speed_unit": "ms",
+    }, timeout=120)
+    r.raise_for_status()
+    return pd.DataFrame(r.json()["hourly"])
+
+
+def add_time_columns(df, tz):
+    """Rename the UTC time column and add a local wall-clock column.
+
+    The series is fetched in UTC, so time_local is derived by converting to the
+    city's IANA zone (DST handled automatically). It is left blank when the zone
+    is unknown, i.e. for raw --lat/--lon input.
+    """
+    df = df.rename(columns={"time": "time_utc"})
+    if tz:
+        utc = pd.to_datetime(df["time_utc"]).dt.tz_localize("UTC")
+        df["time_local"] = utc.dt.tz_convert(tz).dt.strftime("%Y-%m-%dT%H:%M")
+    else:
+        df["time_local"] = pd.NA
+    lead = ["time_utc", "time_local"]
+    return df[lead + [c for c in df.columns if c not in lead]]
+
+
+def end_default(end):
+    return end or (dt.date.today() - dt.timedelta(days=6)).isoformat()
 
 
 def main():
@@ -48,27 +93,31 @@ def main():
     p.add_argument("--start", default="2018-01-01")
     p.add_argument("--end", default=None, help="Default: today minus 6 days (ERA5 lag)")
     p.add_argument("--out", default="weather.csv")
+    p.add_argument("--all-capitals", action="store_true",
+                   help="Loop the EU-27 capitals, one CSV per city into --out-dir")
+    p.add_argument("--out-dir", default="out", help="Output dir for --all-capitals")
     args = p.parse_args()
 
+    end = end_default(args.end)
+
+    if args.all_capitals:
+        os.makedirs(args.out_dir, exist_ok=True)
+        for name in CAPITALS:
+            lat, lon, tz, country = geocode(name)
+            df = add_time_columns(fetch(lat, lon, args.start, end), tz)
+            path = os.path.join(args.out_dir, f"{name}.csv")
+            df.to_csv(path, index=False)
+            print(f"{name} ({country}, {tz}): {len(df)} rows -> {path}")
+        return
+
     if args.lat is not None and args.lon is not None:
-        lat, lon = args.lat, args.lon
+        lat, lon, tz = args.lat, args.lon, None
     elif args.location:
-        lat, lon = geocode(args.location)
+        lat, lon, tz, _ = geocode(args.location)
     else:
-        raise SystemExit("Provide --location or --lat/--lon.")
+        raise SystemExit("Provide --location, --lat/--lon, or --all-capitals.")
 
-    end = args.end or (dt.date.today() - dt.timedelta(days=6)).isoformat()
-
-    r = requests.get(ARCHIVE, params={
-        "latitude": lat, "longitude": lon,
-        "start_date": args.start, "end_date": end,
-        "hourly": ",".join(HOURLY),
-        "timezone": "UTC",
-        "wind_speed_unit": "ms",
-    }, timeout=120)
-    r.raise_for_status()
-
-    df = pd.DataFrame(r.json()["hourly"])
+    df = add_time_columns(fetch(lat, lon, args.start, end), tz)
     df.to_csv(args.out, index=False)
     print(f"Saved {len(df)} rows ({args.start} to {end}) to {args.out}")
 

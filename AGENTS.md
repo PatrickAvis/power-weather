@@ -24,6 +24,7 @@ capacity-weighted sampling is explicitly out of scope (see below).
 python download_weather.py --location "London" --out london.csv
 python download_weather.py --location "Paris" --start 2018-01-01 --end 2025-12-31
 python download_weather.py --lat 51.5 --lon -0.1 --out gb.csv
+python download_weather.py --all-capitals --out-dir out
 ```
 
 Requires `requests` and `pandas`.
@@ -32,8 +33,21 @@ Requires `requests` and `pandas`.
 
 - Window: `2018-01-01` to today minus 6 days.
 - Variables: defined in the `HOURLY` list at the top of the script. Edit there.
-- Time zone: UTC. Wind in m/s.
+- Time zone: series is fetched in UTC. Wind in m/s.
 - Location: by name (geocoded via Open-Meteo) or by `--lat`/`--lon`.
+
+### Time columns
+
+Output leads with `time_utc` (the fetched UTC series) and `time_local` (same
+instants converted to the city's wall-clock, DST included). The local zone is
+the IANA name returned by the geocoder, so no zone map is maintained. With raw
+`--lat`/`--lon` there is no name to geocode, so `time_local` is left blank.
+
+### EU-27 capitals loop
+
+`--all-capitals` iterates the `CAPITALS` list at the top of the script (one city
+per member state) and writes one CSV per city to `--out-dir`. Each city is
+geocoded for its lat/lon and timezone.
 
 ## API facts worth not re-deriving
 
@@ -81,5 +95,4 @@ These were prototyped earlier and removed deliberately. Keep the tool minimal.
 
 ## Likely next steps (only if requested)
 
-- Loop the five markets in one run and write one CSV each.
 - Year-chunking for very large multi-point pulls (not needed at current scope).
