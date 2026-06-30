@@ -38,10 +38,12 @@ Requires `requests` and `pandas`.
 
 ### Time columns
 
-Output leads with `time_utc` (the fetched UTC series) and `time_local` (same
-instants converted to the city's wall-clock, DST included). The local zone is
-the IANA name returned by the geocoder, so no zone map is maintained. With raw
-`--lat`/`--lon` there is no name to geocode, so `time_local` is left blank.
+Output leads with `time_utc` and `time_local`, both ISO 8601. `time_utc` carries
+a trailing `Z`; `time_local` carries the city's real DST-aware offset (e.g.
+`+02:00`), which keeps the duplicated autumn fall-back hour distinguishable so
+both columns join cleanly. The local zone is the IANA name returned by the
+geocoder, so no zone map is maintained. With raw `--lat`/`--lon` there is no name
+to geocode, so `time_local` is left blank.
 
 ### EU-27 capitals loop
 

@@ -27,10 +27,12 @@ m/s. The variables fetched are the `HOURLY` list at the top of
 `download_weather.py`; edit there to change them. Location is given by name
 (geocoded) or by `--lat`/`--lon`.
 
-Each CSV starts with two time columns: `time_utc` (the fetched series, always
-UTC) and `time_local` (the same instants as local wall-clock for the city's
-zone, DST included). `time_local` is blank for raw `--lat`/`--lon` input, where
-there is no zone to look up.
+Each CSV starts with two time columns, both ISO 8601: `time_utc` (the fetched
+series, with a trailing `Z`) and `time_local` (the same instants with the city's
+real DST-aware offset, e.g. `2018-07-01T02:00:00+02:00`). The offset keeps the
+duplicated autumn fall-back hour distinguishable, so both columns are safe join
+keys. `time_local` is blank for raw `--lat`/`--lon` input, where there is no zone
+to look up.
 
 `--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
 script; edit to change) and writes one CSV per city to `--out-dir`, e.g.

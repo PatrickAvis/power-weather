@@ -63,19 +63,25 @@ def fetch(lat, lon, start, end):
     return pd.DataFrame(r.json()["hourly"])
 
 
+def _iso_offset(series):
+    """Format a tz-aware datetime Series as ISO 8601 with a colon in the offset
+    (e.g. 2018-07-01T02:00:00+02:00), which %z alone does not give."""
+    s = series.dt.strftime("%Y-%m-%dT%H:%M:%S%z")
+    return s.str.replace(r"([+-]\d{2})(\d{2})$", r"\1:\2", regex=True)
+
+
 def add_time_columns(df, tz):
     """Rename the UTC time column and add a local wall-clock column.
 
-    The series is fetched in UTC, so time_local is derived by converting to the
-    city's IANA zone (DST handled automatically). It is left blank when the zone
-    is unknown, i.e. for raw --lat/--lon input.
+    Both columns are written as unambiguous ISO 8601: time_utc with a trailing Z,
+    time_local with the city's real (DST-aware) UTC offset, so the duplicated
+    autumn fall-back hour stays distinguishable. time_local is left blank when the
+    zone is unknown, i.e. for raw --lat/--lon input.
     """
     df = df.rename(columns={"time": "time_utc"})
-    if tz:
-        utc = pd.to_datetime(df["time_utc"]).dt.tz_localize("UTC")
-        df["time_local"] = utc.dt.tz_convert(tz).dt.strftime("%Y-%m-%dT%H:%M")
-    else:
-        df["time_local"] = pd.NA
+    utc = pd.to_datetime(df["time_utc"], utc=True)
+    df["time_utc"] = utc.dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    df["time_local"] = _iso_offset(utc.dt.tz_convert(tz)) if tz else pd.NA
     lead = ["time_utc", "time_local"]
     return df[lead + [c for c in df.columns if c not in lead]]
 
