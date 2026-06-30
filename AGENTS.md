@@ -38,12 +38,18 @@ Requires `requests` and `pandas`.
 
 ### Time columns
 
-Output leads with `time_utc` and `time_local`, both ISO 8601. `time_utc` carries
-a trailing `Z`; `time_local` carries the city's real DST-aware offset (e.g.
-`+02:00`), which keeps the duplicated autumn fall-back hour distinguishable so
-both columns join cleanly. The local zone is the IANA name returned by the
-geocoder, so no zone map is maintained. With raw `--lat`/`--lon` there is no name
-to geocode, so `time_local` is left blank.
+Output leads with identifiers `city`, `country`, `tz`, then `time_utc` and
+`time_local`, both ISO 8601. `time_utc` carries a trailing `Z`; `time_local`
+carries the city's real DST-aware offset (e.g. `+02:00`), which keeps the
+duplicated autumn fall-back hour distinguishable so both columns join cleanly.
+The local zone is the IANA name returned by the geocoder, so no zone map is
+maintained. With raw `--lat`/`--lon` there is no name to geocode, so `tz`,
+`city`, `country` and `time_local` are left blank.
+
+The identifiers let the per-city files load into one table. For Postgres,
+`time_utc` -> `timestamptz` and `time_local` -> `timestamp` (without time zone):
+a `timestamptz` local column would convert back to the same instant as
+`time_utc`. See README for the DDL.
 
 ### EU-27 capitals loop
 

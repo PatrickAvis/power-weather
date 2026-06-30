@@ -27,12 +27,29 @@ m/s. The variables fetched are the `HOURLY` list at the top of
 `download_weather.py`; edit there to change them. Location is given by name
 (geocoded) or by `--lat`/`--lon`.
 
-Each CSV starts with two time columns, both ISO 8601: `time_utc` (the fetched
+Each row starts with identifiers `city`, `country`, `tz` (the IANA zone, e.g.
+`Europe/Paris`), then two time columns, both ISO 8601: `time_utc` (the fetched
 series, with a trailing `Z`) and `time_local` (the same instants with the city's
 real DST-aware offset, e.g. `2018-07-01T02:00:00+02:00`). The offset keeps the
 duplicated autumn fall-back hour distinguishable, so both columns are safe join
-keys. `time_local` is blank for raw `--lat`/`--lon` input, where there is no zone
-to look up.
+keys. `time_local`, `tz`, `city` and `country` are blank for raw `--lat`/`--lon`
+input, where there is no zone to look up.
+
+## Loading into Postgres
+
+`time_utc` loads into a `timestamptz` (it is an instant). For a local wall-clock
+column use `timestamp` (without time zone), not `timestamptz`: Postgres ignores
+the offset on input to a `timestamp` column and keeps the wall-clock, whereas a
+`timestamptz` would convert `time_local` back to the same UTC instant as
+`time_utc`, making the two columns identical.
+
+```sql
+timestamp_utc   timestamptz NOT NULL,   -- from time_utc
+timestamp_local timestamp   NOT NULL,   -- from time_local (offset dropped)
+```
+
+The per-city files share one schema, so `COPY` them all into one table; `tz`
+lets you recompute local from UTC in SQL (`timestamp_utc AT TIME ZONE tz`).
 
 `--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
 script; edit to change) and writes one CSV per city to `--out-dir`, e.g.

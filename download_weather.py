@@ -70,19 +70,24 @@ def _iso_offset(series):
     return s.str.replace(r"([+-]\d{2})(\d{2})$", r"\1:\2", regex=True)
 
 
-def add_time_columns(df, tz):
-    """Rename the UTC time column and add a local wall-clock column.
+def add_columns(df, tz, city=None, country=None):
+    """Prepend row-level identifiers and write the two time columns.
 
-    Both columns are written as unambiguous ISO 8601: time_utc with a trailing Z,
-    time_local with the city's real (DST-aware) UTC offset, so the duplicated
-    autumn fall-back hour stays distinguishable. time_local is left blank when the
+    Identifiers (city, country, tz) make the per-city files loadable into one
+    Postgres table. Both time columns are unambiguous ISO 8601: time_utc with a
+    trailing Z (load into timestamptz), time_local with the city's real DST-aware
+    UTC offset, so the duplicated autumn fall-back hour stays distinguishable
+    (load into timestamp without time zone). time_local is left blank when the
     zone is unknown, i.e. for raw --lat/--lon input.
     """
     df = df.rename(columns={"time": "time_utc"})
     utc = pd.to_datetime(df["time_utc"], utc=True)
     df["time_utc"] = utc.dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     df["time_local"] = _iso_offset(utc.dt.tz_convert(tz)) if tz else pd.NA
-    lead = ["time_utc", "time_local"]
+    df["city"] = city
+    df["country"] = country
+    df["tz"] = tz
+    lead = ["city", "country", "tz", "time_utc", "time_local"]
     return df[lead + [c for c in df.columns if c not in lead]]
 
 
@@ -110,20 +115,21 @@ def main():
         os.makedirs(args.out_dir, exist_ok=True)
         for name in CAPITALS:
             lat, lon, tz, country = geocode(name)
-            df = add_time_columns(fetch(lat, lon, args.start, end), tz)
+            df = add_columns(fetch(lat, lon, args.start, end), tz, name, country)
             path = os.path.join(args.out_dir, f"{name}.csv")
             df.to_csv(path, index=False)
             print(f"{name} ({country}, {tz}): {len(df)} rows -> {path}")
         return
 
     if args.lat is not None and args.lon is not None:
-        lat, lon, tz = args.lat, args.lon, None
+        lat, lon, tz, city, country = args.lat, args.lon, None, None, None
     elif args.location:
-        lat, lon, tz, _ = geocode(args.location)
+        lat, lon, tz, country = geocode(args.location)
+        city = args.location
     else:
         raise SystemExit("Provide --location, --lat/--lon, or --all-capitals.")
 
-    df = add_time_columns(fetch(lat, lon, args.start, end), tz)
+    df = add_columns(fetch(lat, lon, args.start, end), tz, city, country)
     df.to_csv(args.out, index=False)
     print(f"Saved {len(df)} rows ({args.start} to {end}) to {args.out}")
 
