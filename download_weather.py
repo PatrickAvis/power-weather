@@ -55,8 +55,11 @@ def geocode(name):
     if not hits:
         raise SystemExit(f"No match for '{name}'. Use --lat/--lon instead.")
     h = hits[0]
+    country = h.get("country")
+    if country:
+        country = country.removeprefix("The ")  # "The Netherlands" -> "Netherlands"
     return (h["latitude"], h["longitude"], h.get("timezone"),
-            h.get("country"), h.get("country_code"))
+            country, h.get("country_code"))
 
 
 def fetch(lat, lon, start, end):
