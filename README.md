@@ -51,6 +51,13 @@ timestamp_local timestamp   NOT NULL,   -- from time_local (offset dropped)
 The per-city files share one schema, so `COPY` them all into one table; `tz`
 lets you recompute local from UTC in SQL (`timestamp_utc AT TIME ZONE tz`).
 
+The full table definition is in `schema.sql`, including a `COPY` example and two
+generated columns, `wind_dir_100m_sin` and `wind_dir_100m_cos`. These are the
+cyclical encoding of `wind_direction_100m` for ML: `sin` and `cos` together put
+each direction on the unit circle, so 359 deg sits next to 1 deg and no two
+directions collapse (`sin` alone maps 30 deg and 150 deg the same). The raw
+`wind_direction_100m` column is kept; the encoded columns are derived from it.
+
 `--all-capitals` loops the EU-27 capitals (the `CAPITALS` list at the top of the
 script; edit to change) and writes one CSV per city to `--out-dir`, e.g.
 `out/Paris.csv`. The per-city timezone comes from the geocoder, so there is no

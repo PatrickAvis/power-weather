@@ -17,6 +17,9 @@ capacity-weighted sampling is explicitly out of scope (see below).
 
 - `download_weather.py` — the only script. Fetches one location's hourly series
   from the Open-Meteo archive API and writes a CSV.
+- `schema.sql` — Postgres table for loading the CSVs. Holds the timestamp types
+  and the wind-direction sin/cos generated columns. The downloader stays raw;
+  derived ML features live here. See README for details.
 
 ## Usage
 
